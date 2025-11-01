@@ -54,7 +54,10 @@ query {{
 
     if let Some(data) = response.data {
         if let Some(jday) = data.jday {
-            Ok(formatters::format_workout(&jday))
+            let formatted = formatters::format_workout(&jday);
+            let bw = jday.bw.unwrap_or(0.0);
+            let output = format!("{}\n@ {:.0} bw\n{}", date, bw, formatted);
+            Ok(output)
         } else {
             Err("No workout found for the date.".to_string())
         }

@@ -54,7 +54,7 @@ struct ShowArgs {
     #[arg(short, long)]
     summary: bool,
 
-    date: String,
+    date: Option<String>,
 }
 
 #[tokio::main]
@@ -119,7 +119,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
 
-            let workout = match workouts::get_day(&token, &show.date).await {
+            let date = if let Some(d) = show.date {
+                d
+            } else {
+                // Show last workout
+                let dates = match workouts::get_dates(&token, None, 1, false).await {
+                    Ok(d) => d,
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        std::process::exit(1);
+                    }
+                };
+                if let Some(d) = dates.get(0) {
+                    d.clone()
+                } else {
+                    eprintln!("No workouts found");
+                    std::process::exit(1);
+                }
+            };
+
+            let workout = match workouts::get_day(&token, &date).await {
                 Ok(w) => w,
                 Err(e) => {
                     eprintln!("{}", e);
