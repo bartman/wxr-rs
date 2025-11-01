@@ -5,7 +5,7 @@ mod api;
 mod workouts;
 
 use clap::{Parser, Subcommand};
-use reqwest::Client;
+use crate::api::ReqwestClient;
 
 #[derive(Parser)]
 #[command(name = "wxrust")]
@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match args.command {
         Commands::List(list) => {
-            let client = Client::new();
+            let client = ReqwestClient::new();
             let token = match auth::login(&client, &args.credentials, &token_path).await {
                 Ok(t) => t,
                 Err(e) => {
@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Commands::Show(show) => {
-            let client = Client::new();
+            let client = ReqwestClient::new();
             let token = match auth::login(&client, &args.credentials, &token_path).await {
                 Ok(t) => t,
                 Err(e) => {

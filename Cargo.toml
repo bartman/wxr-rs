@@ -19,3 +19,8 @@ chrono = "0.4"
 ansi_term = "0.12"
 atty = "0.2"
 lazy_static = "1.4"
+async-trait = "0.1"
+
+[dev-dependencies]
+mockall = "0.12"
+tempfile = "3.0"

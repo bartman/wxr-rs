@@ -3,10 +3,9 @@ use crate::auth;
 use crate::formatters;
 use crate::models;
 use chrono::{Datelike, Utc};
-use reqwest::Client;
 
 
-pub async fn get_jday(client: &Client, token: &str, date: &str) -> Result<models::JDay, String> {
+pub async fn get_jday<C: crate::api::ApiClient>(client: &C, token: &str, date: &str) -> Result<models::JDay, String> {
     let claims = auth::decode_token(&token).map_err(|e| e.to_string())?;
     let uid = claims.id;
 
@@ -64,7 +63,7 @@ query {{
     }
 }
 
-pub async fn get_day(client: &Client, token: &str, date: &str) -> Result<String, String> {
+pub async fn get_day<C: crate::api::ApiClient>(client: &C, token: &str, date: &str) -> Result<String, String> {
     let jday = get_jday(client, token, date).await?;
     let formatted = formatters::format_workout(&jday);
     let bw = jday.bw.unwrap_or(0.0);
@@ -72,7 +71,7 @@ pub async fn get_day(client: &Client, token: &str, date: &str) -> Result<String,
     Ok(output)
 }
 
-pub async fn get_dates(client: &Client, token: &str, from: Option<String>, count: u32, reverse: bool) -> Result<Vec<String>, String> {
+pub async fn get_dates<C: crate::api::ApiClient>(client: &C, token: &str, from: Option<String>, count: u32, reverse: bool) -> Result<Vec<String>, String> {
     let claims = auth::decode_token(&token).map_err(|e| e.to_string())?;
     let uid = claims.id;
 

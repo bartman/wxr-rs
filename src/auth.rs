@@ -1,5 +1,4 @@
 use base64::{Engine as _, engine::general_purpose};
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -20,7 +19,7 @@ struct CachedToken {
     exp: u64,
 }
 
-pub async fn login(client: &Client, credentials_path: &str, token_path: &str) -> Result<String, String> {
+pub async fn login<C: crate::api::ApiClient>(client: &C, credentials_path: &str, token_path: &str) -> Result<String, String> {
     // Check if token file exists and is valid
     if let Ok(contents) = fs::read_to_string(token_path) {
         if let Ok(cached) = serde_json::from_str::<CachedToken>(&contents) {
