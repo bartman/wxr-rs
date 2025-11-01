@@ -63,12 +63,14 @@ query {{
     }
 }
 
-pub async fn get_all_dates(token: &str) -> Result<Vec<String>, String> {
+pub async fn get_dates_from(token: &str, from: Option<String>, count: u32) -> Result<Vec<String>, String> {
     let claims = auth::decode_token(&token).map_err(|e| e.to_string())?;
     let uid = claims.id;
 
-    let today = Utc::now().date_naive();
-    let ymd = format!("{:04}-{:02}-{:02}", today.year(), today.month(), today.day());
+    let ymd = from.clone().unwrap_or_else(|| {
+        let today = Utc::now().date_naive();
+        format!("{:04}-{:02}-{:02}", today.year(), today.month(), today.day())
+    });
 
     let query = r#"
 query GetJRange($uid: ID!, $ymd: YMD!, $range: Int!) {
@@ -80,7 +82,7 @@ query GetJRange($uid: ID!, $ymd: YMD!, $range: Int!) {
 }
 "#;
 
-    let variables = serde_json::json!({ "uid": uid.to_string(), "ymd": ymd, "range": 32 });
+    let variables = serde_json::json!({ "uid": uid.to_string(), "ymd": ymd, "range": count });
 
     let response: models::GraphQLResponse<models::GetJRangeData> = api::graphql_request(token, query, Some(variables)).await.map_err(|e| e.to_string())?;
 
@@ -96,7 +98,17 @@ query GetJRange($uid: ID!, $ymd: YMD!, $range: Int!) {
                     .map(|d| format!("{}-{}-{}", &d[0..4], &d[5..7], &d[8..10]))
                     .collect();
                 date_strings.sort();
-                Ok(date_strings)
+                let selected: Vec<String> = if from.is_none() {
+                    // most recent count
+                    date_strings.into_iter().rev().take(count as usize).collect()
+                } else {
+                    // count before from
+                    let filtered: Vec<String> = date_strings.into_iter().filter(|d| d <= &ymd).collect();
+                    filtered.into_iter().rev().take(count as usize).collect()
+                };
+                let mut result = selected;
+                result.sort();
+                Ok(result)
             } else {
                 Ok(vec![])
             }
