@@ -30,6 +30,7 @@ query {{
         dunit
         speed
         force
+        c
       }}
     }}
     exercises {{

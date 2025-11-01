@@ -87,6 +87,7 @@ pub struct Set {
     pub dunit: Option<String>,
     pub speed: Option<f32>,
     pub force: Option<f32>,
+    pub c: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]

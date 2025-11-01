@@ -11,29 +11,93 @@ pub fn format_weight(w: f32, lb: bool) -> String {
     }
 }
 
+pub fn format_set(set: &Set) -> String {
+    let w = set.w.unwrap_or(0.0);
+    let r = set.r.unwrap_or(0);
+    let s = set.s.unwrap_or(1);
+    let rpe = set.rpe.unwrap_or(0.0);
+    let lb = set.lb.unwrap_or(0.0) == 1.0;
+    let w_str = format_weight(w, lb);
+    let mut line = w_str;
+    if r > 0 {
+        line += &format!(" x {}", r);
+    }
+    if s > 1 {
+        line += &format!(" x {}", s);
+    }
+    if rpe > 0.0 {
+        line += &format!(" @{}", rpe);
+    }
+    if let Some(c) = &set.c {
+        if !c.is_empty() {
+            line += &format!(" {}", c);
+        }
+    }
+    line
+}
+
 pub fn compress_sets(sets: &[Set]) -> Vec<String> {
-    let mut groups: Vec<(f32, Vec<u32>)> = Vec::new();
-    for set in sets {
-        let weight = set.w.unwrap_or(0.0);
-        let reps = set.r.unwrap_or(0);
-        if let Some(pos) = groups.iter().position(|(w, _)| *w == weight) {
-            groups[pos].1.push(reps);
+    let mut compressed = Vec::new();
+    let mut i = 0;
+    while i < sets.len() {
+        let set = &sets[i];
+        if set.set_type.unwrap_or(0) != 0 {
+            compressed.push(format_set(set));
+            i += 1;
+            continue;
+        }
+        let w = set.w.unwrap_or(0.0);
+        let r = set.r.unwrap_or(0);
+        let _s = set.s.unwrap_or(1);
+        let rpe = set.rpe.unwrap_or(0.0);
+        let lb = set.lb.unwrap_or(0.0) == 1.0;
+        // check for same weight consecutive
+        let mut same_weight = vec![r];
+        let mut j = i + 1;
+        while j < sets.len() {
+            let next = &sets[j];
+            if next.set_type.unwrap_or(0) != 0 || next.w != set.w || next.rpe != set.rpe || next.lb != set.lb || next.s != set.s {
+                break;
+            }
+            same_weight.push(next.r.unwrap_or(0));
+            j += 1;
+        }
+        if same_weight.len() > 1 {
+            let w_str = format_weight(w, lb);
+            let r_str = same_weight.iter().map(|&r| r.to_string()).collect::<Vec<_>>().join(", ");
+            let mut line = format!("{} x {}", w_str, r_str);
+            if rpe > 0.0 {
+                line += &format!(" @{}", rpe);
+            }
+            compressed.push(line);
+            i = j;
         } else {
-            groups.push((weight, vec![reps]));
+            // check for same rep
+            let mut same_rep = vec![w];
+            let mut j = i + 1;
+            while j < sets.len() {
+                let next = &sets[j];
+                if next.set_type.unwrap_or(0) != 0 || next.r != set.r || next.rpe != set.rpe || next.lb != set.lb || next.s != set.s {
+                    break;
+                }
+                same_rep.push(next.w.unwrap_or(0.0));
+                j += 1;
+            }
+            if same_rep.len() > 1 {
+                let w_str = same_rep.iter().map(|&w| format_weight(w, lb)).collect::<Vec<_>>().join(", ");
+                let mut line = format!("{} x {}", w_str, r);
+                if rpe > 0.0 {
+                    line += &format!(" @{}", rpe);
+                }
+                compressed.push(line);
+                i = j;
+            } else {
+                compressed.push(format_set(set));
+                i += 1;
+            }
         }
     }
-    groups.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-    let mut result = Vec::new();
-    for (weight, reps) in groups {
-        let w_str = format_weight(weight, true);
-        if reps.len() == 1 {
-            result.push(format!("{} x {}", w_str, reps[0]));
-        } else {
-            let r_str = reps.iter().map(|r| r.to_string()).collect::<Vec<_>>().join(", ");
-            result.push(format!("{} x {}", w_str, r_str));
-        }
-    }
-    result
+    compressed
 }
 
 pub fn format_eblocks(jday: &JDay) -> String {
