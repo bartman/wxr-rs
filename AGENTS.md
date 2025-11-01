@@ -10,10 +10,19 @@ decodes the JWT token for user ID, queries the GraphQL API for workout data, and
 
 - **API Structure**: WeightXReps uses GraphQL at `/api/graphql` for all data operations. Authentication via JWT tokens in Authorization headers.
 - **Authentication**: Login mutation `login(u: $u, p: $p)` returns a JWT token containing user ID in the `id` field.
-- **Data Retrieval**: `JDay` query fetches workouts by user ID and date (YMD format: YYYY-MM-DD). Includes structured data like eblocks (exercise blocks), sets, exercises, and a
-pre-formatted log.
+- **Data Retrieval**:
+  - `JDay` query fetches workouts by user ID and date (YMD format: YYYY-MM-DD). Includes structured data like eblocks (exercise blocks), sets, exercises, and a pre-formatted log.
+  - `jrange` query fetches a range of workout days around a given date, with configurable count (max 32). Returns days with workouts in the range.
 - **Data Formatting**: Workout logs are formatted text with #exercise prefixes and compressed set notations (e.g., 135x5x3 or 445x1,3). Formatting logic found in client code.
-- **Rust Implementation**: Used reqwest for HTTP, serde for JSON, base64 for JWT decoding. Handled GraphQL responses, error checking, and data transformation.
+- **Color Scheme**: Website editor uses specific RGB colors for syntax highlighting:
+  - Date: #9D4EDD (157,78,221)
+  - Body weight: #3A86FF (58,134,255)
+  - Exercise names: #0096FF (0,150,255) - brighter blue for visibility
+  - Weights: #FF7900 (255,121,0)
+  - Reps: #00BBF9 (0,187,249)
+  - Sets: #F15BB5 (241,91,181)
+- **Performance**: Reuse HTTP client across requests to maintain connection pooling and avoid TCP overhead.
+- **Rust Implementation**: Used reqwest for HTTP with client reuse, serde for JSON, base64 for JWT decoding, ansi_term for colors, atty for TTY detection. Handled GraphQL responses, error checking, and inline color application during text generation.
 
 ## Referenced Links
 
@@ -39,23 +48,32 @@ git clone https://github.com/bandinopla/weightxreps-client.git weightxreps-clien
 ## Program Features
 
 - Reads credentials from `credentials.txt` (email first line, password second).
-- Authenticates and retrieves JWT token.
+- Authenticates and caches JWT token.
 - Decodes token to extract user ID.
-- Queries latest workout for a specific date.
-- Formats structured JSON data into human-readable text with compression.
-- Outputs full workout log matching site format (date, bodyweight, program, sets, URL).
+- Queries individual workouts (`JDay`) or date ranges (`jrange`).
+- Formats structured JSON data into human-readable text with compression and colors.
+- Supports listing dates, detailed views, and summaries.
+- Outputs full workout logs matching site format (date, bodyweight, program, sets, URL).
+- CLI with subcommands, options for count, before, reverse, details, summary, color control.
 
 ## Dependencies Added
 
-- `reqwest` (0.12) with JSON features for HTTP requests.
+- `reqwest` (0.12) with JSON features for HTTP requests and client reuse.
 - `serde` (1.0) with derive for JSON serialization/deserialization.
 - `base64` (0.21) for JWT payload decoding.
 - `tokio` (1) for async runtime.
+- `clap` (4.0) for CLI parsing.
+- `regex` (1.0) for text processing.
+- `chrono` (0.4) for date handling.
+- `ansi_term` (0.12) for terminal colors.
+- `atty` (0.2) for TTY detection.
+- `lazy_static` (1.4) for global state.
 
 ## Future Improvements
 
-- Handle multiple dates or latest workout dynamically.
-- Add error recovery for network issues.
-- Implement full compression logic for all set types.
-- Support for other GraphQL queries (goals, user profile).
+- Add support for year/month range queries.
+- Implement caching for workout data.
+- Add export options (JSON, CSV).
+- Support for user profile and goals queries.
+- Enhance error handling and retry logic.
 
