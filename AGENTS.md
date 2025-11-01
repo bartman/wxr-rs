@@ -68,6 +68,15 @@ git clone https://github.com/bandinopla/weightxreps-client.git weightxreps-clien
 - `ansi_term` (0.12) for terminal colors.
 - `atty` (0.2) for TTY detection.
 - `lazy_static` (1.4) for global state.
+- `async-trait` (0.1) for async traits.
+- `mockall` (0.12) for mocking in tests (dev-dependency).
+- `tempfile` (3.0) for temporary files in tests (dev-dependency).
+
+## Testing and CI/CD
+
+- **Unit Tests**: Comprehensive test suite with 18 tests covering formatters, auth, workouts, and API stubbing. Tests are standalone, no external dependencies.
+- **Integration Tests**: Stubbed API calls using `mockall` for testing authentication and data retrieval without real network access.
+- **CI/CD**: GitHub Actions workflow at https://github.com/bartman/wxr-rs/actions/workflows/ci.yml that builds and runs tests on every push/PR to master.
 
 ## Future Improvements
 
@@ -76,4 +85,5 @@ git clone https://github.com/bandinopla/weightxreps-client.git weightxreps-clien
 - Add export options (JSON, CSV).
 - Support for user profile and goals queries.
 - Enhance error handling and retry logic.
+- Add code coverage reporting (e.g., with cargo-tarpaulin).
 
