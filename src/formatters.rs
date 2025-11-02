@@ -1,10 +1,9 @@
 use std::collections::HashMap;
-use regex::Regex;
 use lazy_static::lazy_static;
 use ansi_term::Colour;
 use atty;
 
-use crate::models::{JDay, Set, Exercise};
+use crate::models::{JDay, Set, Exercise, EBlock};
 
 lazy_static! {
     static ref COLOR_ENABLED: bool = {
@@ -178,20 +177,20 @@ pub fn compress_sets(sets: &[Set]) -> Vec<String> {
     compressed
 }
 
-pub fn format_eblocks(jday: &JDay) -> String {
+pub fn format_single_eblock(jday: &JDay, eblock: &EBlock) -> String {
     let mut ex_map: HashMap<String, &Exercise> = HashMap::new();
     for ex_wrap in &jday.exercises {
         ex_map.insert(ex_wrap.exercise.id.clone(), &ex_wrap.exercise);
     }
     let mut lines = Vec::new();
-    for eblock in &jday.eblocks {
-        if let Some(ex) = ex_map.get(&eblock.eid) {
-            lines.push("#".to_string() + &color_exercise(&ex.name));
-            lines.extend(compress_sets(&eblock.sets));
-        }
+    if let Some(ex) = ex_map.get(&eblock.eid) {
+        lines.push("#".to_string() + &color_exercise(&ex.name));
+        lines.extend(compress_sets(&eblock.sets));
     }
     lines.join("\n")
 }
+
+
 
 pub fn summarize_workout(jday: &JDay) -> String {
     let mut ex_map: HashMap<String, &Exercise> = HashMap::new();
@@ -224,7 +223,11 @@ pub fn summarize_workout(jday: &JDay) -> String {
 }
 
 pub fn format_workout(jday: &JDay) -> String {
-    let formatted_eblocks = format_eblocks(jday);
-    let re = Regex::new(r"EBLOCK:\d+").unwrap();
-    re.replace_all(&jday.log, &("\n".to_string() + &formatted_eblocks + "\n")).to_string()
+    let mut result = jday.log.clone();
+    for eblock in &jday.eblocks {
+        let formatted = format_single_eblock(jday, eblock);
+        let placeholder = format!("EBLOCK:{}", eblock.eid);
+        result = result.replace(&placeholder, &formatted);
+    }
+    result
 }
