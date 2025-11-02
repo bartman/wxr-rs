@@ -3,3 +3,4 @@ pub mod formatters;
 pub mod auth;
 pub mod api;
 pub mod workouts;
+pub mod utils;
