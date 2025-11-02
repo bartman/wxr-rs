@@ -7,8 +7,9 @@ decodes the JWT token for user ID, queries the GraphQL API for workout data, and
 
 ## Instructions from user
 
-- make sure code changes build with `cargo build`
-- make sure code changes pass unit tests `cargo test`
+- make sure code changes build with: `cargo build`
+- make sure code changes pass unit tests: `cargo test`
+- make sure code changes pass smoke tests: `./smoke.py`
 - when generating new code, consider splitting new functionality into helper functions
 - write unit tests for new functions; put unit tests into `tests/test_*.rs`
 - update README.md when new features are added
