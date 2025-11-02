@@ -5,15 +5,14 @@
 This session developed a Rust program to authenticate with WeightXReps (https:weightxreps.net/) and retrieve user workouts. The program logs in using email/password from a file,
 decodes the JWT token for user ID, queries the GraphQL API for workout data, and formats the output to match the site's log format.
 
-## Recent Updates
+## Instructions from user
 
-- **User Unit Preferences**: Implemented support for displaying body weight in the user's preferred units (kg or lb) based on API data.
-  - Fixed GraphQL query from `userBasicInfo` (which returned null for `usekg`) to `getSession { user { usekg } }` to fetch preferences (`usekg`: 1=kg, 0=lb).
-  - Updated `User` struct in `src/models.rs`: changed `usekg` from `bool` to `Option<i32>`.
-  - Added `SessionInfo` struct for query response handling.
-  - Modified unit conversion in `src/workouts.rs`: converts body weight from kg to lb only if `usekg != 1`; defaults to kg if data missing.
-  - Updated tests in `tests/test_api.rs`, `tests/test_auth_integration.rs`, `tests/test_workouts.rs` for new mocks, expectations, and trait methods.
-  - Feature now works: body weight displays correctly in preferred units via `cargo run -- show`.
+- make sure code changes build with `cargo build`
+- make sure code changes pass unit tests `cargo test`
+- when generating new code, consider splitting new functionality into helper functions
+- write unit tests for new functions; put unit tests into `tests/test_*.rs`
+- update README.md when new features are added
+- update AGENTS.md when you discover new information that is useful to future agents
 
 ## Key Learnings
 
@@ -30,7 +29,7 @@ decodes the JWT token for user ID, queries the GraphQL API for workout data, and
   - Weights: #FF7900 (255,121,0)
   - Reps: #00BBF9 (0,187,249)
   - Sets: #F15BB5 (241,91,181)
-- **Performance**: Reuse HTTP client across requests to maintain connection pooling and avoid TCP overhead.
+- **Performance**: Reuse HTTP client across requests to maintain connection pooling and avoid TCP overhead. Implemented concurrent API fetching for multiple workouts and session-level caching of user preferences to reduce latency and redundant calls.
 - **Rust Implementation**: Used reqwest for HTTP with client reuse, serde for JSON, base64 for JWT decoding, ansi_term for colors, atty for TTY detection. Handled GraphQL responses, error checking, and inline color application during text generation.
 
 ## Referenced Links
@@ -54,14 +53,16 @@ You can clone the weightxreps-client code, in the project directory, to inspect 
 git clone https://github.com/bandinopla/weightxreps-client.git weightxreps-client
 ```
 
+You can look in `weightxreps-client/src/data/generated---db-types-and-hooks.tsx` for API information.
+
 ## Program Features
 
 - Reads credentials from `credentials.txt` (email first line, password second).
-- Authenticates and caches JWT token.
+- Authenticates and caches JWT token in `~/.config/wxrust/token`.
 - Decodes token to extract user ID.
 - Queries individual workouts (`JDay`) or date ranges (`jrange`).
 - Formats structured JSON data into human-readable text with compression and colors.
-- Supports listing dates, detailed views, and summaries.
+- Supports listing dates, detailed views, and summaries with concurrent fetching for improved performance.
 - Outputs full workout logs matching site format (date, bodyweight, program, sets, URL).
 - Handles user unit preferences for body weight display (kg or lb) fetched from API.
 - CLI with subcommands, options for count, before, reverse, details, summary, color control, and date ranges (using .. separator).
@@ -86,7 +87,7 @@ git clone https://github.com/bandinopla/weightxreps-client.git weightxreps-clien
 
 - **Unit Tests**: Comprehensive test suite with 21 tests covering formatters, auth, workouts, and API stubbing. Tests are standalone, no external dependencies.
 - **Integration Tests**: Stubbed API calls using `mockall` for testing authentication and data retrieval without real network access.
-- **Code Coverage**: 54.08% overall coverage (179/331 lines) using `cargo-tarpaulin`. High coverage in core modules (formatters: 83%, auth: 76%, workouts: 63%). HTML reports generated in CI.
+- **Code Coverage**: 80.25% overall coverage (256/319 lines) using `cargo-tarpaulin` after excluding API and main functions. High coverage in core modules (formatters: 83%, auth: 76%, workouts: 63%). HTML reports generated in CI via `coverage.sh` script, into `coverage/` directory.
 - **CI/CD**: GitHub Actions workflow at https://github.com/bartman/wxr-rs/actions/workflows/ci.yml that builds, tests, and generates coverage reports on every push/PR to master. Coverage dashboard at https://app.codecov.io/github/bartman/wxr-rs.
 
 ## Future Improvements
