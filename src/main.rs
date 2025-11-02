@@ -7,7 +7,6 @@ mod utils;
 
 use clap::{Parser, Subcommand};
 
-use std::collections::HashMap;
 use crate::api::ReqwestClient;
 
 #[derive(Parser)]
@@ -79,7 +78,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match args.command {
         Commands::List(list) => {
-            let valid_workouts: HashMap<String, models::JDay> = HashMap::new();
             let client = ReqwestClient::new_with_verbose(args.verbose);
             let token = match auth::login(&client, &args.credentials, &token_path).await {
                 Ok(t) => t,
@@ -142,51 +140,55 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             if list.details {
-                let client = ReqwestClient::new_with_verbose(args.verbose);
-                let token = match auth::login(&client, &args.credentials, &token_path).await {
-                    Ok(t) => t,
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
+                let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+                for date in &dates_to_use {
+                    let date = date.clone();
+                    let client_clone = client.clone();
+                    let token_clone = token.clone();
+                    let tx_clone = tx.clone();
+                    tokio::spawn(async move {
+                        let result = match workouts::get_day(&client_clone, &token_clone, &date).await {
+                            Ok(w) => Some(w),
+                            Err(e) => {
+                                eprintln!("Error getting workout for {}: {}", date, e);
+                                None
+                            }
+                        };
+                        tx_clone.send(result).await.unwrap();
+                    });
+                }
+                drop(tx);
+                while let Some(result) = rx.recv().await {
+                    if let Some(workout) = result {
+                        println!("{}", workout);
                     }
-                };
-                for date in dates_to_use {
-                    let workout = match workouts::get_day(&client, &token, &date).await {
-                        Ok(w) => w,
-                        Err(e) => {
-                            eprintln!("Error getting workout for {}: {}", date, e);
-                            continue;
-                        }
-                    };
-                    println!("{}", workout);
                 }
             } else if list.summary {
-                let client = ReqwestClient::new_with_verbose(args.verbose);
-                let token = match auth::login(&client, &args.credentials, &token_path).await {
-                    Ok(t) => t,
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
-                    }
-                };
-                for date in dates_to_use {
-                    let jday_owned = if let Some(j) = valid_workouts.get(&date) {
-                        j.clone()
-                    } else {
-                        match workouts::get_jday(&client, &token, &date).await {
+                let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+                for date in &dates_to_use {
+                    let date = date.clone();
+                    let client_clone = client.clone();
+                    let token_clone = token.clone();
+                    let tx_clone = tx.clone();
+                    tokio::spawn(async move {
+                        let result = match workouts::get_jday(&client_clone, &token_clone, &date).await {
                             Ok(j) => {
                                 let summary = formatters::summarize_workout(&j);
-                                println!("{} {}", formatters::color_date(&date), summary);
-                                continue;
+                                Some(format!("{} {}", formatters::color_date(&date), summary))
                             }
                             Err(e) => {
                                 eprintln!("Error getting workout for {}: {}", date, e);
-                                continue;
+                                None
                             }
-                        }
-                    };
-                    let summary = formatters::summarize_workout(&jday_owned);
-                    println!("{} {}", formatters::color_date(&date), summary);
+                        };
+                        tx_clone.send(result).await.unwrap();
+                    });
+                }
+                drop(tx);
+                while let Some(result) = rx.recv().await {
+                    if let Some(line) = result {
+                        println!("{}", line);
+                    }
                 }
             } else {
                 for date in dates_to_use {

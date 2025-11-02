@@ -15,6 +15,7 @@ pub trait ApiClient: Send + Sync {
     async fn get_user_info(&self, token: &str) -> Result<crate::models::User, Box<dyn std::error::Error>>;
 }
 
+#[derive(Clone)]
 pub struct ReqwestClient {
     client: Client,
     verbose: bool,
