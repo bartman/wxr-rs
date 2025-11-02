@@ -46,7 +46,7 @@ async fn test_get_jday_success() {
                             exercise: Exercise {
                                 id: "ex1".to_string(),
                                 name: "Squat".to_string(),
-                                ex_type: "strength".to_string(),
+                                ex_type: Some("strength".to_string()),
                             },
                         }],
                     }),

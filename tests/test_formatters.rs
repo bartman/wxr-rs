@@ -77,38 +77,14 @@ fn test_compress_sets_separated_same_weight() {
     assert_eq!(compressed[2], "135 x 1");
 }
 
-#[test]
-fn test_format_eblocks() {
-    let exercise = Exercise {
-        id: "ex1".to_string(),
-        name: "Squat".to_string(),
-        ex_type: "strength".to_string(),
-    };
-    let ex_wrapper = ExerciseWrapper { exercise };
-    let sets = vec![
-        Set { w: Some(135.0), r: Some(5), s: Some(1), lb: Some(0.0), ..Default::default() },
-    ];
-    let eblock = EBlock {
-        eid: "ex1".to_string(),
-        sets,
-    };
-    let jday = JDay {
-        log: "".to_string(),
-        bw: Some(180.0),
-        eblocks: vec![eblock],
-        exercises: vec![ex_wrapper],
-    };
-    unsafe { std::env::set_var("WXRUST_COLOR", "never"); }
-    let formatted = format_eblocks(&jday);
-    assert_eq!(formatted, "#Squat\n135 x 5");
-}
+
 
 #[test]
 fn test_summarize_workout() {
     let exercise = Exercise {
         id: "ex1".to_string(),
         name: "Squat".to_string(),
-        ex_type: "strength".to_string(),
+        ex_type: Some("strength".to_string()),
     };
     let ex_wrapper = ExerciseWrapper { exercise };
     let sets = vec![
@@ -135,7 +111,7 @@ fn test_format_workout() {
     let exercise = Exercise {
         id: "ex1".to_string(),
         name: "Squat".to_string(),
-        ex_type: "strength".to_string(),
+        ex_type: Some("strength".to_string()),
     };
     let ex_wrapper = ExerciseWrapper { exercise };
     let sets = vec![
@@ -145,7 +121,7 @@ fn test_format_workout() {
         eid: "ex1".to_string(),
         sets,
     };
-    let log = "Date: 2023-10-01\nEBLOCK:1\nSome text";
+    let log = "Date: 2023-10-01\nEBLOCK:ex1\nSome text";
     let jday = JDay {
         log: log.to_string(),
         bw: Some(180.0),
@@ -156,4 +132,53 @@ fn test_format_workout() {
     let formatted = format_workout(&jday);
     assert!(formatted.contains("#Squat\n135 x 5"));
     assert!(formatted.contains("Date: 2023-10-01"));
+    assert!(formatted.contains("Some text"));
+}
+
+#[test]
+fn test_format_workout_multiple_eblocks() {
+    let exercise1 = Exercise {
+        id: "ex1".to_string(),
+        name: "Squat".to_string(),
+        ex_type: Some("strength".to_string()),
+    };
+    let exercise2 = Exercise {
+        id: "ex2".to_string(),
+        name: "Bench".to_string(),
+        ex_type: Some("strength".to_string()),
+    };
+    let ex_wrapper1 = ExerciseWrapper { exercise: exercise1 };
+    let ex_wrapper2 = ExerciseWrapper { exercise: exercise2 };
+    let sets1 = vec![
+        Set { w: Some(135.0), r: Some(5), s: Some(1), lb: Some(0.0), ..Default::default() },
+    ];
+    let sets2 = vec![
+        Set { w: Some(100.0), r: Some(8), s: Some(1), lb: Some(0.0), ..Default::default() },
+    ];
+    let eblock1 = EBlock {
+        eid: "ex1".to_string(),
+        sets: sets1,
+    };
+    let eblock2 = EBlock {
+        eid: "ex2".to_string(),
+        sets: sets2,
+    };
+    let log = "Date: 2023-10-01\nEBLOCK:ex1\nEBLOCK:ex2\nEnd";
+    let jday = JDay {
+        log: log.to_string(),
+        bw: Some(180.0),
+        eblocks: vec![eblock1, eblock2],
+        exercises: vec![ex_wrapper1, ex_wrapper2],
+    };
+    unsafe { std::env::set_var("WXRUST_COLOR", "never"); }
+    let formatted = format_workout(&jday);
+    assert!(formatted.contains("Date: 2023-10-01"));
+    assert!(formatted.contains("#Squat\n135 x 5"));
+    assert!(formatted.contains("#Bench\n100 x 8"));
+    assert!(formatted.contains("End"));
+    // Ensure no duplication
+    let squat_count = formatted.matches("#Squat").count();
+    let bench_count = formatted.matches("#Bench").count();
+    assert_eq!(squat_count, 1);
+    assert_eq!(bench_count, 1);
 }
