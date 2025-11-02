@@ -67,7 +67,7 @@ pub struct WorkoutData {
     pub jday: Option<JDay>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[allow(dead_code)]
 pub struct JDay {
     pub log: String,
@@ -76,14 +76,14 @@ pub struct JDay {
     pub exercises: Vec<ExerciseWrapper>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[allow(dead_code)]
 pub struct EBlock {
     pub eid: String,
     pub sets: Vec<Set>,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
 #[allow(dead_code)]
 pub struct Set {
     pub w: Option<f32>,
@@ -105,13 +105,13 @@ pub struct Set {
     pub c: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[allow(dead_code)]
 pub struct ExerciseWrapper {
     pub exercise: Exercise,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[allow(dead_code)]
 pub struct Exercise {
     pub id: String,
