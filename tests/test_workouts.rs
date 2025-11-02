@@ -113,3 +113,45 @@ async fn test_get_dates_success() {
     let dates = result.unwrap();
     assert_eq!(dates, vec!["2023-10-01", "2023-10-02"]);
 }
+
+#[tokio::test]
+async fn test_get_dates_invalid_token() {
+    let mock_client = MockApiClient::new();
+    // No expectations needed
+
+    let result = get_dates(&mock_client, "invalid_token", None, 2, false).await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("Invalid token format"));
+}
+
+#[tokio::test]
+async fn test_get_jday_invalid_token() {
+    let mock_client = MockApiClient::new();
+    // No need to set expectations since decode_token will fail first
+
+    let result = get_jday(&mock_client, "invalid_token", "2023-10-01").await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("Invalid token format"));
+}
+
+#[tokio::test]
+async fn test_get_jday_graphql_error() {
+    let header = general_purpose::URL_SAFE_NO_PAD.encode(r#"{"alg":"HS256","typ":"JWT"}"#.as_bytes());
+    let payload = general_purpose::URL_SAFE_NO_PAD.encode(r#"{"id":123,"exp":2000000000}"#.as_bytes());
+    let token = format!("{}.{}.{}", header, payload, "signature");
+
+    let mut mock_client = MockApiClient::new();
+    mock_client
+        .expect_graphql_request::<wxrust::models::WorkoutData>()
+        .times(1)
+        .returning(|_, _, _| {
+            Ok(GraphQLResponse {
+                data: None,
+                errors: Some(vec![wxrust::models::GraphQLError { message: "GraphQL error".to_string() }]),
+            })
+        });
+
+    let result = get_jday(&mock_client, &token, "2023-10-01").await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("GraphQL error"));
+}
