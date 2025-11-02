@@ -108,7 +108,7 @@ async fn test_get_dates_success() {
             })
         });
 
-    let result = get_dates(&mock_client, &token, None, 2, false).await;
+    let result = get_dates(&mock_client, &token, None, None, 2, false).await;
     assert!(result.is_ok());
     let dates = result.unwrap();
     assert_eq!(dates, vec!["2023-10-01", "2023-10-02"]);
@@ -119,7 +119,7 @@ async fn test_get_dates_invalid_token() {
     let mock_client = MockApiClient::new();
     // No expectations needed
 
-    let result = get_dates(&mock_client, "invalid_token", None, 2, false).await;
+    let result = get_dates(&mock_client, "invalid_token", None, None, 2, false).await;
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("Invalid token format"));
 }

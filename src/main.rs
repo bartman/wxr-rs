@@ -5,7 +5,7 @@ mod api;
 mod workouts;
 
 use clap::{Parser, Subcommand};
-use chrono::{NaiveDate, Duration};
+use chrono::{NaiveDate, Datelike};
 use std::collections::HashMap;
 use crate::api::ReqwestClient;
 
@@ -67,44 +67,92 @@ struct ShowArgs {
 }
 
 fn parse_date_range(range: &str) -> Result<(NaiveDate, NaiveDate), String> {
-    let parts: Vec<&str> = range.split('-').collect();
+    let parts: Vec<&str> = range.split("..").collect();
     if parts.len() == 1 {
-        let date = parse_date_boundary(range)?;
-        Ok((date, date))
-    } else if parts.len() == 2 {
-        let start = parse_date_boundary(parts[0])?;
-        let end = parse_date_boundary(parts[1])?;
+        let start = parse_date_boundary(range, false)?;
+        let end = parse_date_boundary(range, true)?;
         Ok((start, end))
-    } else if parts.len() == 3 {
-        let date = parse_date_boundary(range)?;
-        Ok((date, date))
+    } else if parts.len() == 2 {
+        let start = parse_date_boundary(parts[0], false)?;
+        let end = parse_date_boundary(parts[1], true)?;
+        Ok((start, end))
     } else {
         Err("Invalid range format".to_string())
     }
 }
 
-fn parse_date_boundary(s: &str) -> Result<NaiveDate, String> {
-    let normalized = s.replace(".", "-").replace("/", "-");
-    if normalized.contains('-') {
-        // Assume YYYY-MM-DD
-        NaiveDate::parse_from_str(&normalized, "%Y-%m-%d").map_err(|e| format!("Invalid date: {}", e))
-    } else {
-        if normalized.len() == 4 { // YYYY
-            let year = normalized.parse::<i32>().map_err(|_| "Invalid year".to_string())?;
-            NaiveDate::from_ymd_opt(year, 1, 1).ok_or("Invalid date".to_string())
-        } else if normalized.len() == 6 { // YYYYMM
-            let year = normalized[0..4].parse::<i32>().map_err(|_| "Invalid year".to_string())?;
-            let month = normalized[4..6].parse::<u32>().map_err(|_| "Invalid month".to_string())?;
-            NaiveDate::from_ymd_opt(year, month, 1).ok_or("Invalid date".to_string())
-        } else if normalized.len() == 8 { // YYYYMMDD
-            let year = normalized[0..4].parse::<i32>().map_err(|_| "Invalid year".to_string())?;
-            let month = normalized[4..6].parse::<u32>().map_err(|_| "Invalid month".to_string())?;
-            let day = normalized[6..8].parse::<u32>().map_err(|_| "Invalid day".to_string())?;
-            NaiveDate::from_ymd_opt(year, month, day).ok_or("Invalid date".to_string())
-        } else {
-            Err("Invalid date format".to_string())
+// generate a string from text given.
+// looks for dates like YYYYMMDD, YYYY/MM/DD, YYYY-MM-DD, or YYYY.MM.DD
+// if DD is missing picks the first or last day of the month (depending on end)
+// if MMDD is missing picks the first or last day of the year (depending on end)
+// examples:
+// "20250527"             -> NativeDate of 2025/05/27       (ignores end)
+// "20250-05" end=false   -> NativeDate of 2025/05/01
+// "20250-05" end=true    -> NativeDate of 2025/05/31
+fn parse_date_boundary(s: &str, end: bool) -> Result<NaiveDate, String> {
+    let mut parts = Vec::new();
+    for p in s.split(['-', '/', '.']) {
+        if !p.is_empty() {
+            parts.push(p);
         }
     }
+
+    let (year_str, month_str, day_str) = if parts.len() == 1 {
+        let compact = parts[0];
+        if compact.len() == 8 {
+            // YYYYMMDD
+            (compact[0..4].to_string(), compact[4..6].to_string(), compact[6..8].to_string())
+        } else if compact.len() == 6 {
+            // YYYYMM
+            (compact[0..4].to_string(), compact[4..6].to_string(), "".to_string())
+        } else if compact.len() == 4 {
+            // YYYY
+            (compact.to_string(), "".to_string(), "".to_string())
+        } else {
+            return Err("Invalid compact date format".to_string());
+        }
+    } else if parts.len() == 2 {
+        (parts[0].to_string(), parts[1].to_string(), "".to_string())
+    } else if parts.len() == 3 {
+        (parts[0].to_string(), parts[1].to_string(), parts[2].to_string())
+    } else if parts.len() == 0 {
+        return Err("Empty date string".to_string());
+    } else {
+        return Err("Too many parts".to_string());
+    };
+
+    let year: i32 = year_str.parse().map_err(|_| "Invalid year")?;
+    if year_str.len() != 4 {
+        return Err("Year must be 4 digits".to_string());
+    }
+
+    if month_str.is_empty() {
+        return Ok(if end {
+            NaiveDate::from_ymd_opt(year, 12, 31).unwrap()
+        } else {
+            NaiveDate::from_ymd_opt(year, 1, 1).unwrap()
+        });
+    }
+
+    let month: u32 = month_str.parse().map_err(|_| "Invalid month")?;
+    if month == 0 || month > 12 {
+        return Err("Invalid month".to_string());
+    }
+
+    if day_str.is_empty() {
+        let last_day = if month == 12 {
+            NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - chrono::Duration::days(1)
+        } else {
+            NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap() - chrono::Duration::days(1)
+        }.day();
+
+        let day = if end { last_day } else { 1 };
+        return Ok(NaiveDate::from_ymd_opt(year, month, day).unwrap());
+    }
+
+    let day: u32 = day_str.parse().map_err(|_| "Invalid day")?;
+    NaiveDate::from_ymd_opt(year, month, day)
+        .ok_or_else(|| "Invalid date".to_string())
 }
 
 #[tokio::main]
@@ -117,29 +165,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match args.command {
         Commands::List(list) => {
-            let mut valid_workouts: HashMap<String, models::JDay> = HashMap::new();
+            let valid_workouts: HashMap<String, models::JDay> = HashMap::new();
+            let client = ReqwestClient::new_with_verbose(args.verbose);
+            let token = match auth::login(&client, &args.credentials, &token_path).await {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
+                }
+            };
             let dates_to_use = if list.dates.is_empty() {
-                let client = ReqwestClient::new_with_verbose(args.verbose);
-                let token = match auth::login(&client, &args.credentials, &token_path).await {
-                    Ok(t) => t,
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
-                    }
-                };
-
-                let (from, count) = if list.all {
-                    (None, 10000)
+                let (latest, oldest, count) = if list.all {
+                    (None, None, 10000)
                 } else if let Some(before) = &list.before {
                     let cnt = list.count.unwrap_or(32);
-                    (Some(before.clone()), cnt)
+                    (Some(before.clone()), None, cnt)
                 } else if let Some(cnt) = list.count {
-                    (None, cnt)
+                    (None, None, cnt)
                 } else {
-                    (None, 32)
+                    (None, None, 32)
                 };
 
-                match workouts::get_dates(&client, &token, from, count, list.reverse).await {
+                match workouts::get_dates(&client, &token, latest, oldest, count, list.reverse).await {
                     Ok(d) => d,
                     Err(e) => {
                         eprintln!("{}", e);
@@ -148,40 +195,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             } else {
                 // Parse ranges
-                let mut range_dates = std::collections::HashSet::new();
+                let mut all_dates: Vec<String> = vec![];
                 for range_str in &list.dates {
-                    let (start, end) = match parse_date_range(range_str) {
-                        Ok(se) => se,
+                    let (oldest, latest) = match parse_date_range(range_str) {
+                        Ok(start_end) => start_end,
                         Err(e) => {
                             eprintln!("Invalid date range '{}': {}", range_str, e);
                             std::process::exit(1);
                         }
                     };
-                    let mut current = start;
-                    while current <= end {
-                        range_dates.insert(current.format("%Y-%m-%d").to_string());
-                        current += Duration::days(1);
-                    }
+                    let count = ((oldest - latest).num_days().abs() + 1) as u32;
+                    let dates = match workouts::get_dates(&client, &token,
+                                        Some(latest.to_string()), Some(oldest.to_string()), count, false).await {
+                        Ok(d) => d,
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            std::process::exit(1);
+                        }
+                    };
+                    all_dates.extend(dates);
                 }
-                let client = ReqwestClient::new_with_verbose(args.verbose);
-                let token = match auth::login(&client, &args.credentials, &token_path).await {
-                    Ok(t) => t,
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
-                    }
-                };
-                for date in &range_dates {
-                    if let Ok(jday) = workouts::get_jday(&client, &token, date).await {
-                        valid_workouts.insert(date.clone(), jday);
-                    }
-                }
-                let mut filtered_dates: Vec<String> = valid_workouts.keys().cloned().collect();
-                filtered_dates.sort();
+                all_dates.sort();
                 if list.reverse {
-                    filtered_dates.reverse();
+                    all_dates.reverse();
                 }
-                filtered_dates
+                all_dates
             };
 
             if dates_to_use.is_empty() {
@@ -256,7 +294,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 d
             } else {
                 // Show last workout
-                let dates = match workouts::get_dates(&client, &token, None, 1, false).await {
+                let dates = match workouts::get_dates(&client, &token, None, None, 1, false).await {
                     Ok(d) => d,
                     Err(e) => {
                         eprintln!("{}", e);

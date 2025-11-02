@@ -50,11 +50,11 @@ pub async fn get_day<C: crate::api::ApiClient>(client: &C, token: &str, date: &s
     Ok(output)
 }
 
-pub async fn get_dates<C: crate::api::ApiClient>(client: &C, token: &str, from: Option<String>, count: u32, reverse: bool) -> Result<Vec<String>, String> {
+pub async fn get_dates<C: crate::api::ApiClient>(client: &C, token: &str, latest: Option<String>, oldest: Option<String>, count: u32, reverse: bool) -> Result<Vec<String>, String> {
     let claims = auth::decode_token(&token).map_err(|e| e.to_string())?;
     let uid = claims.id;
 
-    let initial_ymd = from.clone().unwrap_or_else(|| {
+    let initial_ymd = latest.clone().unwrap_or_else(|| {
         let today = Utc::now().date_naive();
         format!("{:04}-{:02}-{:02}", today.year(), today.month(), today.day())
     });
@@ -71,10 +71,9 @@ query GetJRange($uid: ID!, $ymd: YMD!, $range: Int!) {
 
     let mut all_dates: Vec<String> = Vec::new();
     let mut current_ymd = initial_ymd.clone();
-    let mut remaining = count;
 
-    while remaining > 0 {
-        let batch_size = std::cmp::min(32, remaining);
+    loop {
+        let batch_size = 32;
         let variables = serde_json::json!({ "uid": uid.to_string(), "ymd": current_ymd.clone(), "range": batch_size });
 
         let response: models::GraphQLResponse<models::GetJRangeData> = api::graphql_request(client, token, query, Some(variables)).await.map_err(|e| e.to_string())?;
@@ -103,32 +102,60 @@ query GetJRange($uid: ID!, $ymd: YMD!, $range: Int!) {
         }
 
         date_strings.sort();
-        all_dates.extend(date_strings.clone());
 
-        // Set next ymd to the oldest in this batch to get older dates
-        if let Some(oldest) = date_strings.first() {
-            current_ymd = oldest.clone();
-        } else {
+        // Filter dates
+        let filtered: Vec<String> = date_strings.iter().cloned()
+            .filter(|d| {
+                if let Some(old) = &oldest {
+                    d >= old
+                } else {
+                    true
+                }
+            })
+            .filter(|d| {
+                if let Some(lat) = &latest {
+                    d <= lat
+                } else {
+                    true
+                }
+            })
+            .collect();
+
+        all_dates.extend(filtered);
+
+        // Check if we have enough
+        if count > 0 && all_dates.len() >= count as usize {
             break;
         }
 
-        remaining -= batch_size;
+        // Check if we reached the oldest
+        if let Some(old) = &oldest {
+            if let Some(batch_oldest) = date_strings.first() {
+                if batch_oldest < old {
+                    break;
+                }
+            }
+        }
+
+        // Set next ymd to the oldest in this batch to get older dates
+        if let Some(oldest_in_batch) = date_strings.first() {
+            current_ymd = oldest_in_batch.clone();
+        } else {
+            break;
+        }
     }
 
     // Remove duplicates and sort
     all_dates.sort();
     all_dates.dedup();
 
-    let selected: Vec<String> = if from.is_none() {
-        // most recent count
+    let mut result = if count > 0 {
+        // Take the most recent count
         all_dates.into_iter().rev().take(count as usize).collect()
     } else {
-        // count before from
-        let filtered: Vec<String> = all_dates.into_iter().filter(|d| d <= &initial_ymd).collect();
-        filtered.into_iter().rev().take(count as usize).collect()
+        all_dates
     };
 
-    let mut result = selected;
     result.sort();
     if reverse {
         result.reverse();
