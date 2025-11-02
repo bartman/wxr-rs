@@ -16,31 +16,10 @@ query {{
     bw
     eblocks {{
       eid
-      sets {{
-        w
-        r
-        s
-        lb
-        rpe
-        pr
-        est1rm
-        eff
-        int
-        type
-        t
-        d
-        dunit
-        speed
-        force
-        c
-      }}
+      sets {{ w r s lb rpe pr est1rm eff int type t d dunit speed force c }}
     }}
     exercises {{
-      exercise {{
-        id
-        name
-        type
-      }}
+      exercise {{ id name type }}
     }}
   }}
 }}
