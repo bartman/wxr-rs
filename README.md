@@ -48,6 +48,7 @@ Create `credentials.txt` in the project root with your WeightXReps email on the 
 - List with full details: `wxrust list --details --count 3`
 - List with summaries: `wxrust list --summary --count 2`
 - List before a date: `wxrust list --before 2025-10-30 --count 5`
+- List in a date range: `wxrust list 2025-10-01..2025-10-31`
 - Reverse order: `wxrust list --count 5 --reverse`
 - List all (up to 1000): `wxrust list --all`
 
@@ -65,6 +66,9 @@ wxrust list --details --count 2
 
 # Summarize workouts before a specific date
 wxrust list --summary --before 2025-10-30 --count 3
+
+# List workouts in October 2025
+wxrust list 2025-10-01..2025-10-31
 
 # Disable colors
 wxrust --color never list --summary --count 1

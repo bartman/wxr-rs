@@ -54,7 +54,7 @@ git clone https://github.com/bandinopla/weightxreps-client.git weightxreps-clien
 - Formats structured JSON data into human-readable text with compression and colors.
 - Supports listing dates, detailed views, and summaries.
 - Outputs full workout logs matching site format (date, bodyweight, program, sets, URL).
-- CLI with subcommands, options for count, before, reverse, details, summary, color control.
+- CLI with subcommands, options for count, before, reverse, details, summary, color control, and date ranges (using .. separator).
 
 ## Dependencies Added
 
